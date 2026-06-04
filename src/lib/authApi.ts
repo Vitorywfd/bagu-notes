@@ -15,11 +15,15 @@ type AuthResponse = {
   user?: unknown;
 };
 
-function getAuthEndpoint(path: string) {
+function getProxyAuthEndpoint(path: string) {
   if (import.meta.env.PROD) {
     return `/api/supabase?path=${encodeURIComponent(path)}`;
   }
 
+  return getDirectAuthEndpoint(path);
+}
+
+function getDirectAuthEndpoint(path: string) {
   if (!supabaseUrl) {
     throw new Error("Missing VITE_SUPABASE_URL");
   }
@@ -48,20 +52,7 @@ export async function usernameToInternalEmail(username: string) {
   return `u-${toHex(digest).slice(0, 32)}@bagu-notes.local`;
 }
 
-async function requestAuth(path: string, payload: Record<string, unknown>) {
-  if (!supabaseAnonKey) {
-    throw new Error("Missing VITE_SUPABASE_ANON_KEY");
-  }
-
-  const response = await fetch(getAuthEndpoint(path), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: supabaseAnonKey,
-      Authorization: `Bearer ${supabaseAnonKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+async function parseAuthResponse(response: Response) {
   const text = await response.text();
   const data = text ? JSON.parse(text) : {};
 
@@ -70,6 +61,39 @@ async function requestAuth(path: string, payload: Record<string, unknown>) {
   }
 
   return data as AuthResponse;
+}
+
+function shouldRetryDirect(error: unknown) {
+  if (!import.meta.env.PROD || !error || typeof error !== "object") return false;
+  const status = "status" in error ? Number((error as { status?: unknown }).status) : 0;
+  const message = JSON.stringify(error).toLowerCase();
+  return status === 502 && message.includes("fetch failed");
+}
+
+async function requestAuth(path: string, payload: Record<string, unknown>) {
+  if (!supabaseAnonKey) {
+    throw new Error("Missing VITE_SUPABASE_ANON_KEY");
+  }
+
+  const init: RequestInit = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${supabaseAnonKey}`,
+    },
+    body: JSON.stringify(payload),
+  };
+
+  try {
+    return await parseAuthResponse(await fetch(getProxyAuthEndpoint(path), init));
+  } catch (error) {
+    if (!shouldRetryDirect(error)) {
+      throw error;
+    }
+  }
+
+  return parseAuthResponse(await fetch(getDirectAuthEndpoint(path), init));
 }
 
 async function applySession(data: AuthResponse) {
