@@ -34,7 +34,17 @@ async function getAccessToken() {
 
 async function parseResponse(response: Response) {
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    if (response.status === 521 || text.includes("Error code 521") || text.includes("Web server is down")) {
+      throw new Error("Supabase 项目仍在恢复或暂时不可用。请等待几分钟后再试。");
+    }
+
+    throw new Error("Supabase 返回了非 JSON 响应，请稍后重试。");
+  }
 
   if (!response.ok) {
     throw data || new Error(`HTTP ${response.status}`);

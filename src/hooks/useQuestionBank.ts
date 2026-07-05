@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { parseQuestionBankImport } from "../lib/importExport";
 import { supabaseRest } from "../lib/supabaseRest";
+import { getErrorMessage } from "../lib/errorMessage";
 import type { Chapter, Favorite, PortableQuestionBank, Progress, PublicQuestion, Question } from "../types";
 
 type BankState = {
@@ -142,16 +143,48 @@ export function useQuestionBank(user: User | null) {
 
   const toggleFavorite = useCallback(async (questionId: string) => {
     if (!user) return;
-    const client = requireClient();
-    if (favoriteIds.has(questionId)) {
-      const { error } = await client.from("favorites").delete().eq("question_id", questionId);
-      if (error) throw error;
-    } else {
-      const { error } = await client.from("favorites").insert({ user_id: user.id, question_id: questionId });
-      if (error) throw error;
+
+    const wasFavorite = favoriteIds.has(questionId);
+    const previousFavorites = state.favorites;
+    const optimisticFavorites = wasFavorite
+      ? previousFavorites.filter((favorite) => favorite.question_id !== questionId)
+      : [
+          ...previousFavorites,
+          {
+            user_id: user.id,
+            question_id: questionId,
+            created_at: new Date().toISOString(),
+          },
+        ];
+
+    setMessage("");
+    setState((current) => ({ ...current, favorites: optimisticFavorites }));
+
+    try {
+      if (wasFavorite) {
+        await supabaseRest<null>(`/rest/v1/favorites?question_id=eq.${encodeURIComponent(questionId)}`, {
+          method: "DELETE",
+        });
+      } else {
+        await supabaseRest<Favorite[]>("/rest/v1/favorites", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            question_id: questionId,
+          }),
+        });
+      }
+    } catch (error) {
+      setState((current) => ({ ...current, favorites: previousFavorites }));
+      const message = getErrorMessage(error, "收藏操作失败，请稍后重试。");
+      setMessage(message);
+      throw new Error(message);
     }
-    await refresh();
-  }, [favoriteIds, refresh, user]);
+  }, [favoriteIds, state.favorites, user]);
 
   const recordView = useCallback(async (questionId: string) => {
     if (!user) return;

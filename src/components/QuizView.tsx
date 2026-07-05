@@ -16,6 +16,8 @@ type Props = {
 
 export function QuizView(props: Props) {
   const [ui, setUi] = useState(loadLocalUiState);
+  const [favoriteBusyId, setFavoriteBusyId] = useState("");
+  const [favoriteMessage, setFavoriteMessage] = useState("");
 
   const currentChapter = useMemo(() => {
     return props.chapters.find((chapter) => chapter.id === ui.chapterId) || props.chapters[0];
@@ -53,6 +55,21 @@ export function QuizView(props: Props) {
   function go(nextIndex: number) {
     const next = currentList[Math.max(0, Math.min(nextIndex, currentList.length - 1))];
     if (next) updateUi({ ...ui, questionId: next.id, answerOpen: false });
+  }
+
+  async function toggleFavorite(questionId: string) {
+    if (favoriteBusyId) return;
+
+    setFavoriteBusyId(questionId);
+    setFavoriteMessage("");
+
+    try {
+      await props.onToggleFavorite(questionId);
+    } catch (error) {
+      setFavoriteMessage(error instanceof Error ? error.message : "收藏操作失败，请稍后重试。");
+    } finally {
+      setFavoriteBusyId("");
+    }
   }
 
   if (props.loading) return <section className="panel empty-state">题库加载中...</section>;
@@ -118,10 +135,15 @@ export function QuizView(props: Props) {
       <article className="question-card">
         <div className="question-meta">
           <span>当前题目</span>
-          <button className={`favorite-icon ${props.favoriteIds.has(currentQuestion.id) ? "active" : ""}`} onClick={() => props.onToggleFavorite(currentQuestion.id)}>
-            <Star size={18} fill="currentColor" /> {props.favoriteIds.has(currentQuestion.id) ? "已收藏" : "收藏"}
+          <button
+            className={`favorite-icon ${props.favoriteIds.has(currentQuestion.id) ? "active" : ""}`}
+            disabled={favoriteBusyId === currentQuestion.id}
+            onClick={() => toggleFavorite(currentQuestion.id)}
+          >
+            <Star size={18} fill="currentColor" /> {favoriteBusyId === currentQuestion.id ? "处理中" : props.favoriteIds.has(currentQuestion.id) ? "已收藏" : "收藏"}
           </button>
         </div>
+        {favoriteMessage && <p className="toast-inline compact">{favoriteMessage}</p>}
         <button className="question-title" onClick={() => updateUi({ ...ui, answerOpen: !ui.answerOpen })}>
           Q{currentIndex + 1}. {currentQuestion.question}
         </button>
