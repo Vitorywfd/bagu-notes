@@ -20,6 +20,7 @@ export function ManageView(props: Props) {
   const [editingChapter, setEditingChapter] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState("");
 
   const currentChapterId = form.chapter_id || props.chapters[0]?.id || "";
   const questionList = useMemo(() => {
@@ -27,12 +28,17 @@ export function ManageView(props: Props) {
   }, [currentChapterId, props.questions]);
 
   async function run(action: () => Promise<void>, ok: string) {
+    if (busy) return;
+
     try {
+      setBusy(ok);
       setMessage("");
       await action();
       setMessage(ok);
     } catch (error) {
       setMessage(getErrorMessage(error));
+    } finally {
+      setBusy("");
     }
   }
 
@@ -51,11 +57,11 @@ export function ManageView(props: Props) {
         <h2>章节管理</h2>
         <div className="input-row">
           <input value={chapterTitle} onChange={(event) => setChapterTitle(event.target.value)} placeholder="新章节名称，例如 C语言篇" />
-          <button className="primary-btn" onClick={() => run(async () => {
+          <button className="primary-btn" disabled={busy === "章节已创建"} onClick={() => run(async () => {
             await props.onCreateChapter(chapterTitle);
             setChapterTitle("");
           }, "章节已创建")}>
-            <Plus size={18} /> 新增
+            <Plus size={18} /> {busy === "章节已创建" ? "新增中" : "新增"}
           </button>
         </div>
         <div className="list-stack">
@@ -67,11 +73,11 @@ export function ManageView(props: Props) {
                 onChange={(event) => setChapterTitle(event.target.value)}
               />
               {editingChapter === chapter.id ? (
-                <button className="secondary-btn" onClick={() => run(async () => {
+                <button className="secondary-btn" disabled={busy === "章节已更新"} onClick={() => run(async () => {
                   await props.onUpdateChapter(chapter.id, chapterTitle);
                   setEditingChapter("");
                   setChapterTitle("");
-                }, "章节已更新")}>保存</button>
+                }, "章节已更新")}>{busy === "章节已更新" ? "保存中" : "保存"}</button>
               ) : (
                 <button className="icon-btn" onClick={() => {
                   setEditingChapter(chapter.id);
@@ -103,7 +109,7 @@ export function ManageView(props: Props) {
           <textarea value={form.answer} onChange={(event) => setForm({ ...form, answer: event.target.value })} rows={8} placeholder="支持 Markdown 和代码块" />
         </label>
         <div className="quiz-actions">
-          <button className="primary-btn" disabled={!currentChapterId || !form.question.trim() || !form.answer.trim()} onClick={() => run(async () => {
+          <button className="primary-btn" disabled={busy === "题目已保存" || !currentChapterId || !form.question.trim() || !form.answer.trim()} onClick={() => run(async () => {
             await props.onSaveQuestion({
               id: form.id || undefined,
               chapter_id: currentChapterId,
@@ -111,9 +117,10 @@ export function ManageView(props: Props) {
               answer: form.answer,
             });
             setForm({ ...emptyForm, chapter_id: currentChapterId });
-          }, "题目已保存")}>保存题目</button>
+          }, "题目已保存")}>{busy === "题目已保存" ? "保存中" : "保存题目"}</button>
           <button className="secondary-btn" onClick={() => setForm({ ...emptyForm, chapter_id: currentChapterId })}>清空</button>
         </div>
+        {message && <p className="toast-inline compact">{message}</p>}
       </div>
 
       <div className="panel">
@@ -130,7 +137,6 @@ export function ManageView(props: Props) {
           {!questionList.length && <p className="muted">这个章节还没有题目。</p>}
         </div>
       </div>
-      {message && <p className="toast-inline">{message}</p>}
     </section>
   );
 }

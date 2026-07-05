@@ -114,7 +114,6 @@ export function useQuestionBank(user: User | null) {
     answer: string;
   }) => {
     if (!user) return;
-    const client = requireClient();
     const payload = {
       user_id: user.id,
       chapter_id: input.chapter_id,
@@ -122,17 +121,50 @@ export function useQuestionBank(user: User | null) {
       answer: input.answer.trim(),
       sort_order: state.questions.filter((item) => item.chapter_id === input.chapter_id).length + 1,
     };
-    const query = input.id
-      ? client.from("questions").update({
+
+    if (input.id) {
+      const [savedQuestion] = await supabaseRest<Question[]>(`/rest/v1/questions?id=eq.${encodeURIComponent(input.id)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
           chapter_id: input.chapter_id,
           question: payload.question,
           answer: payload.answer,
-        }).eq("id", input.id)
-      : client.from("questions").insert(payload);
-    const { error } = await query;
-    if (error) throw error;
-    await refresh();
-  }, [refresh, state.questions, user]);
+        }),
+      });
+
+      if (!savedQuestion) {
+        throw new Error("题目保存失败，请稍后重试。");
+      }
+
+      setState((current) => ({
+        ...current,
+        questions: current.questions.map((question) => (question.id === savedQuestion.id ? savedQuestion : question)),
+      }));
+      return;
+    }
+
+    const [savedQuestion] = await supabaseRest<Question[]>("/rest/v1/questions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!savedQuestion) {
+      throw new Error("题目保存失败，请稍后重试。");
+    }
+
+    setState((current) => ({
+      ...current,
+      questions: [...current.questions, savedQuestion],
+    }));
+  }, [state.questions, user]);
 
   const deleteQuestion = useCallback(async (questionId: string) => {
     const client = requireClient();
