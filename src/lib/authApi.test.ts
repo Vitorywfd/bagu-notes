@@ -47,4 +47,25 @@ describe("getAuthErrorMessage", () => {
     expect(fetchMock.mock.calls[0][0]).toContain("/api/supabase?path=%2Fauth%2Fv1%2Ftoken");
     expect(fetchMock.mock.calls[1][0]).toContain("https://demo.supabase.co/auth/v1/token");
   });
+
+  it("shows a readable message when Supabase is still unavailable after resume", async () => {
+    vi.stubEnv("PROD", true);
+    vi.stubEnv("VITE_SUPABASE_URL", "https://demo.supabase.co");
+    vi.stubEnv("VITE_SUPABASE_ANON_KEY", "sb_publishable_demo");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<!DOCTYPE html><title>Error code 521</title>", { status: 521 })),
+    );
+
+    const { getAuthErrorMessage, signInWithPassword } = await import("./authApi");
+    await expect(signInWithPassword({ username: "WEN", password: "123456" })).rejects.toThrow(
+      "Supabase 项目仍在恢复或暂时不可用。请等待几分钟后再试。",
+    );
+
+    try {
+      await signInWithPassword({ username: "WEN", password: "123456" });
+    } catch (error) {
+      expect(getAuthErrorMessage(error)).toBe("Supabase 项目仍在恢复或暂时不可用。请等待几分钟后再试。");
+    }
+  });
 });
