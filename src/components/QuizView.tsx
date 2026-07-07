@@ -42,7 +42,9 @@ export function QuizView(props: Props) {
 
   useEffect(() => {
     if (!currentQuestion) return;
-    void props.onRecordView(currentQuestion.id);
+    void props.onRecordView(currentQuestion.id).catch(() => {
+      // The hook surfaces the save failure through the shared app message.
+    });
     // record once when the visible question changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.id]);

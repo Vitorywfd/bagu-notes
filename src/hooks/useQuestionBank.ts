@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { parseQuestionBankImport } from "../lib/importExport";
+import { mergeProgressItem, nextProgressItem } from "../lib/progress";
 import { supabaseRest } from "../lib/supabaseRest";
 import { getErrorMessage } from "../lib/errorMessage";
 import type { Chapter, Favorite, PortableQuestionBank, Progress, PublicQuestion, Question } from "../types";
@@ -220,17 +221,38 @@ export function useQuestionBank(user: User | null) {
 
   const recordView = useCallback(async (questionId: string) => {
     if (!user) return;
-    const existing = state.progress.find((item) => item.question_id === questionId);
-    const client = requireClient();
-    const { error } = await client.from("study_progress").upsert({
-      user_id: user.id,
-      question_id: questionId,
-      viewed_count: (existing?.viewed_count || 0) + 1,
-      last_viewed_at: new Date().toISOString(),
-    }, { onConflict: "user_id,question_id" });
-    if (error) throw error;
-    await refresh();
-  }, [refresh, state.progress, user]);
+    const previousProgress = state.progress;
+    const progressItem = nextProgressItem(previousProgress, user.id, questionId, new Date().toISOString());
+
+    setMessage("");
+    setState((current) => ({
+      ...current,
+      progress: mergeProgressItem(current.progress, nextProgressItem(current.progress, user.id, questionId, progressItem.last_viewed_at)),
+    }));
+
+    try {
+      const [savedProgress] = await supabaseRest<Progress[]>("/rest/v1/study_progress?on_conflict=user_id,question_id", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=representation",
+        },
+        body: JSON.stringify(progressItem),
+      });
+
+      if (savedProgress) {
+        setState((current) => ({
+          ...current,
+          progress: mergeProgressItem(current.progress, savedProgress),
+        }));
+      }
+    } catch (error) {
+      setState((current) => ({ ...current, progress: previousProgress }));
+      const message = getErrorMessage(error, "刷题进度保存失败，请稍后重试。");
+      setMessage(message);
+      throw new Error(message);
+    }
+  }, [state.progress, user]);
 
   const importBank = useCallback(async (rawJson: string) => {
     if (!user) return;
