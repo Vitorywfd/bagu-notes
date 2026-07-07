@@ -9,6 +9,7 @@ type Props = {
   questions: Question[];
   favoriteIds: Set<string>;
   viewedCount: number;
+  resumeQuestionId: string;
   loading: boolean;
   onToggleFavorite: (questionId: string) => Promise<void>;
   onRecordView: (questionId: string) => Promise<void>;
@@ -16,6 +17,7 @@ type Props = {
 
 export function QuizView(props: Props) {
   const [ui, setUi] = useState(loadLocalUiState);
+  const [appliedResumeQuestionId, setAppliedResumeQuestionId] = useState("");
   const [favoriteBusyId, setFavoriteBusyId] = useState("");
   const [favoriteMessage, setFavoriteMessage] = useState("");
 
@@ -30,6 +32,14 @@ export function QuizView(props: Props) {
 
   const currentIndex = Math.max(0, currentList.findIndex((question) => question.id === ui.questionId));
   const currentQuestion = currentList[currentIndex] || currentList[0];
+  const resumeQuestion = useMemo(() => {
+    return props.questions.find((question) => question.id === props.resumeQuestionId);
+  }, [props.questions, props.resumeQuestionId]);
+  const shouldApplyResume = Boolean(
+    resumeQuestion &&
+    props.resumeQuestionId &&
+    appliedResumeQuestionId !== props.resumeQuestionId,
+  );
 
   useEffect(() => {
     if (!currentChapter) return;
@@ -41,7 +51,22 @@ export function QuizView(props: Props) {
   }, [currentChapter, ui]);
 
   useEffect(() => {
+    if (!resumeQuestion || !shouldApplyResume) return;
+    const next = {
+      ...ui,
+      chapterId: resumeQuestion.chapter_id,
+      questionId: resumeQuestion.id,
+      answerOpen: false,
+      favoriteOnly: false,
+    };
+    setAppliedResumeQuestionId(resumeQuestion.id);
+    setUi(next);
+    saveLocalUiState(next);
+  }, [resumeQuestion, shouldApplyResume, ui]);
+
+  useEffect(() => {
     if (!currentQuestion) return;
+    if (shouldApplyResume) return;
     void props.onRecordView(currentQuestion.id).catch(() => {
       // The hook surfaces the save failure through the shared app message.
     });

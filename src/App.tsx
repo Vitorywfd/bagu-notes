@@ -9,6 +9,7 @@ import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import { useAuth } from "./hooks/useAuth";
 import { useDemoQuestionBank } from "./hooks/useDemoQuestionBank";
 import { useQuestionBank } from "./hooks/useQuestionBank";
+import { getLatestProgressQuestionId } from "./lib/progress";
 import type { AppTab } from "./types";
 
 function App() {
@@ -41,6 +42,9 @@ function AppShell({ bank, modeMessage, currentUserId }: { bank: BankFacade; mode
   const viewedCount = useMemo(() => {
     return bank.progress.filter((item) => item.viewed_count > 0).length;
   }, [bank.progress]);
+  const latestProgressQuestionId = useMemo(() => {
+    return getLatestProgressQuestionId(bank.progress, bank.questions);
+  }, [bank.progress, bank.questions]);
 
   return (
     <main className="app-shell">
@@ -63,6 +67,7 @@ function AppShell({ bank, modeMessage, currentUserId }: { bank: BankFacade; mode
           questions={bank.questions}
           favoriteIds={bank.favoriteIds}
           viewedCount={viewedCount}
+          resumeQuestionId={latestProgressQuestionId}
           loading={bank.loading}
           onToggleFavorite={bank.toggleFavorite}
           onRecordView={bank.recordView}
