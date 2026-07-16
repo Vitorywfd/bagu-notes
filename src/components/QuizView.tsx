@@ -13,6 +13,7 @@ type Props = {
   loading: boolean;
   onToggleFavorite: (questionId: string) => Promise<void>;
   onRecordView: (questionId: string) => Promise<void>;
+  onCurrentQuestionChange: (questionId: string) => void;
 };
 
 export function QuizView(props: Props) {
@@ -73,6 +74,10 @@ export function QuizView(props: Props) {
     // record once when the visible question changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.id]);
+
+  useEffect(() => {
+    if (currentQuestion) props.onCurrentQuestionChange(currentQuestion.id);
+  }, [currentQuestion?.id, props.onCurrentQuestionChange]);
 
   function updateUi(next: typeof ui) {
     setUi(next);

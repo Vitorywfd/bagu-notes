@@ -55,6 +55,7 @@ describe("QuizView", () => {
         loading={false}
         onToggleFavorite={vi.fn().mockResolvedValue(undefined)}
         onRecordView={onRecordView}
+        onCurrentQuestionChange={vi.fn()}
       />,
     );
 
@@ -68,5 +69,25 @@ describe("QuizView", () => {
     });
     await waitFor(() => expect(onRecordView).toHaveBeenCalledWith("question-2"));
     expect(onRecordView).not.toHaveBeenCalledWith("question-1");
+  });
+
+  it("reports the visible question to the app shell", async () => {
+    const onCurrentQuestionChange = vi.fn();
+
+    render(
+      <QuizView
+        chapters={[chapter("chapter-1", "C语言篇")]}
+        questions={[question("question-1", "chapter-1", "第一题", 1)]}
+        favoriteIds={new Set()}
+        viewedCount={0}
+        resumeQuestionId=""
+        loading={false}
+        onToggleFavorite={vi.fn().mockResolvedValue(undefined)}
+        onRecordView={vi.fn().mockResolvedValue(undefined)}
+        onCurrentQuestionChange={onCurrentQuestionChange}
+      />,
+    );
+
+    await waitFor(() => expect(onCurrentQuestionChange).toHaveBeenCalledWith("question-1"));
   });
 });

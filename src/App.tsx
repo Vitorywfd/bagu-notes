@@ -39,6 +39,7 @@ type BankFacade = ReturnType<typeof useQuestionBank> | ReturnType<typeof useDemo
 
 function AppShell({ bank, modeMessage, currentUserId }: { bank: BankFacade; modeMessage: string; currentUserId?: string }) {
   const [tab, setTab] = useState<AppTab>("quiz");
+  const [activeQuestionId, setActiveQuestionId] = useState("");
   const viewedCount = useMemo(() => {
     return bank.progress.filter((item) => item.viewed_count > 0).length;
   }, [bank.progress]);
@@ -71,12 +72,14 @@ function AppShell({ bank, modeMessage, currentUserId }: { bank: BankFacade; mode
           loading={bank.loading}
           onToggleFavorite={bank.toggleFavorite}
           onRecordView={bank.recordView}
+          onCurrentQuestionChange={setActiveQuestionId}
         />
       )}
       {tab === "manage" && (
         <ManageView
           chapters={bank.chapters}
           questions={bank.questions}
+          activeQuestionId={activeQuestionId}
           onCreateChapter={bank.createChapter}
           onUpdateChapter={bank.updateChapter}
           onDeleteChapter={bank.deleteChapter}

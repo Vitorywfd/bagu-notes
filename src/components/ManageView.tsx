@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PenLine, Plus, Trash2 } from "lucide-react";
 import { getErrorMessage } from "../lib/errorMessage";
 import type { Chapter, Question } from "../types";
@@ -6,6 +6,7 @@ import type { Chapter, Question } from "../types";
 type Props = {
   chapters: Chapter[];
   questions: Question[];
+  activeQuestionId: string;
   onCreateChapter: (title: string) => Promise<void>;
   onUpdateChapter: (chapterId: string, title: string) => Promise<void>;
   onDeleteChapter: (chapterId: string) => Promise<void>;
@@ -19,13 +20,30 @@ export function ManageView(props: Props) {
   const [chapterTitle, setChapterTitle] = useState("");
   const [editingChapter, setEditingChapter] = useState("");
   const [form, setForm] = useState(emptyForm);
+  const [creatingQuestion, setCreatingQuestion] = useState(false);
+  const [syncedActiveQuestionId, setSyncedActiveQuestionId] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState("");
 
-  const currentChapterId = form.chapter_id || props.chapters[0]?.id || "";
+  const activeQuestion = useMemo(() => {
+    return props.questions.find((question) => question.id === props.activeQuestionId);
+  }, [props.activeQuestionId, props.questions]);
+  const currentChapterId = form.chapter_id || activeQuestion?.chapter_id || props.chapters[0]?.id || "";
   const questionList = useMemo(() => {
     return props.questions.filter((question) => question.chapter_id === currentChapterId);
   }, [currentChapterId, props.questions]);
+
+  useEffect(() => {
+    if (!activeQuestion || creatingQuestion || syncedActiveQuestionId === activeQuestion.id) return;
+
+    setForm({
+      id: activeQuestion.id,
+      chapter_id: activeQuestion.chapter_id,
+      question: activeQuestion.question,
+      answer: activeQuestion.answer,
+    });
+    setSyncedActiveQuestionId(activeQuestion.id);
+  }, [activeQuestion, creatingQuestion, syncedActiveQuestionId]);
 
   async function run(action: () => Promise<void>, ok: string) {
     if (busy) return;
@@ -43,12 +61,20 @@ export function ManageView(props: Props) {
   }
 
   function editQuestion(question: Question) {
+    setCreatingQuestion(false);
+    setSyncedActiveQuestionId(props.activeQuestionId);
     setForm({
       id: question.id,
       chapter_id: question.chapter_id,
       question: question.question,
       answer: question.answer,
     });
+  }
+
+  function startCreatingQuestion() {
+    setCreatingQuestion(true);
+    setSyncedActiveQuestionId(props.activeQuestionId);
+    setForm({ ...emptyForm, chapter_id: currentChapterId });
   }
 
   return (
@@ -116,9 +142,9 @@ export function ManageView(props: Props) {
               question: form.question,
               answer: form.answer,
             });
-            setForm({ ...emptyForm, chapter_id: currentChapterId });
+            if (!form.id) setForm({ ...emptyForm, chapter_id: currentChapterId });
           }, "题目已保存")}>{busy === "题目已保存" ? "保存中" : "保存题目"}</button>
-          <button className="secondary-btn" onClick={() => setForm({ ...emptyForm, chapter_id: currentChapterId })}>清空</button>
+          <button className="secondary-btn" onClick={startCreatingQuestion}>新增题目</button>
         </div>
         {message && <p className="toast-inline compact">{message}</p>}
       </div>
