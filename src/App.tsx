@@ -85,6 +85,8 @@ function AppShell({ bank, modeMessage, currentUserId }: { bank: BankFacade; mode
           onDeleteChapter={bank.deleteChapter}
           onSaveQuestion={bank.upsertQuestion}
           onDeleteQuestion={bank.deleteQuestion}
+          onReorderChapters={bank.reorderChapters}
+          onReorderQuestions={bank.reorderQuestions}
         />
       )}
       {tab === "import" && (

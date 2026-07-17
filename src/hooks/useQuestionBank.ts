@@ -5,6 +5,7 @@ import { parseQuestionBankImport } from "../lib/importExport";
 import { mergeProgressItem, nextProgressItem } from "../lib/progress";
 import { supabaseRest } from "../lib/supabaseRest";
 import { getErrorMessage } from "../lib/errorMessage";
+import { reorderChapters as reorderChapterItems, reorderQuestions as reorderQuestionItems } from "../lib/reorder";
 import type { Chapter, Favorite, PortableQuestionBank, Progress, PublicQuestion, Question } from "../types";
 
 type BankState = {
@@ -173,6 +174,74 @@ export function useQuestionBank(user: User | null) {
     if (error) throw error;
     await refresh();
   }, [refresh]);
+
+  const reorderChapters = useCallback(async (activeId: string, overId: string) => {
+    if (!user || activeId === overId) return;
+
+    const previousChapters = state.chapters;
+    const chapters = reorderChapterItems(previousChapters, activeId, overId);
+    if (chapters === previousChapters) return;
+
+    setMessage("");
+    setState((current) => ({ ...current, chapters }));
+
+    try {
+      await Promise.all(chapters.map((chapter) => supabaseRest<Chapter[]>(
+        `/rest/v1/chapters?id=eq.${encodeURIComponent(chapter.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({ title: chapter.title, sort_order: chapter.sort_order }),
+        },
+      )));
+    } catch (error) {
+      await refresh();
+      const message = getErrorMessage(error, "章节顺序保存失败，请稍后重试。");
+      setMessage(message);
+      throw new Error(message);
+    }
+  }, [refresh, state.chapters, user]);
+
+  const reorderQuestions = useCallback(async (chapterId: string, activeId: string, overId: string) => {
+    if (!user || activeId === overId) return;
+
+    const chapterQuestions = state.questions
+      .filter((question) => question.chapter_id === chapterId)
+      .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+    const reordered = reorderQuestionItems(chapterQuestions, activeId, overId);
+    if (reordered === chapterQuestions) return;
+
+    const previousQuestions = state.questions;
+    const byId = new Map(reordered.map((question) => [question.id, question]));
+    const questions = previousQuestions
+      .map((question) => byId.get(question.id) || question)
+      .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+
+    setMessage("");
+    setState((current) => ({ ...current, questions }));
+
+    try {
+      await Promise.all(reordered.map((question) => supabaseRest<Question[]>(
+        `/rest/v1/questions?id=eq.${encodeURIComponent(question.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({ sort_order: question.sort_order }),
+        },
+      )));
+    } catch (error) {
+      await refresh();
+      const message = getErrorMessage(error, "题目顺序保存失败，请稍后重试。");
+      setMessage(message);
+      throw new Error(message);
+    }
+  }, [refresh, state.questions, user]);
 
   const toggleFavorite = useCallback(async (questionId: string) => {
     if (!user) return;
@@ -354,6 +423,8 @@ export function useQuestionBank(user: User | null) {
     deleteChapter,
     upsertQuestion,
     deleteQuestion,
+    reorderChapters,
+    reorderQuestions,
     toggleFavorite,
     recordView,
     importBank,

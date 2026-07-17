@@ -1,4 +1,5 @@
 import { parseQuestionBankImport } from "./importExport";
+import { reorderChapters as reorderChapterItems, reorderQuestions as reorderQuestionItems } from "./reorder";
 import { sampleBankJson } from "../data/sampleBank";
 import type { Chapter, Favorite, PortableQuestionBank, Progress, PublicQuestion, Question } from "../types";
 
@@ -119,6 +120,23 @@ export function createDemoBankStore(seed: DemoState = initialState()) {
     };
   };
 
+  const reorderChapters = (activeId: string, overId: string) => {
+    state = {
+      ...state,
+      chapters: reorderChapterItems(state.chapters, activeId, overId),
+    };
+  };
+
+  const reorderQuestions = (chapterId: string, activeId: string, overId: string) => {
+    const chapterQuestions = state.questions.filter((question) => question.chapter_id === chapterId);
+    const reordered = reorderQuestionItems(chapterQuestions, activeId, overId);
+    const byId = new Map(reordered.map((question) => [question.id, question]));
+    state = {
+      ...state,
+      questions: state.questions.map((question) => byId.get(question.id) || question),
+    };
+  };
+
   const toggleFavorite = (questionId: string) => {
     const exists = state.favorites.some((favorite) => favorite.question_id === questionId);
     state = {
@@ -209,6 +227,8 @@ export function createDemoBankStore(seed: DemoState = initialState()) {
     deleteChapter,
     saveQuestion,
     deleteQuestion,
+    reorderChapters,
+    reorderQuestions,
     toggleFavorite,
     recordView,
     importBank,

@@ -37,4 +37,45 @@ describe("createDemoBankStore", () => {
 
     expect(store.getState().questions).toHaveLength(before);
   });
+
+  it("reorders chapters and questions with continuous sort order", () => {
+    const createdAt = "2026-07-17T00:00:00.000Z";
+    const chapters = ["chapter-1", "chapter-2", "chapter-3"].map((id, index) => ({
+      id,
+      user_id: "demo-user",
+      title: `${index + 1}. 第${index + 1}篇`,
+      sort_order: index + 1,
+      created_at: createdAt,
+      updated_at: createdAt,
+    }));
+    const chapterQuestions = ["question-1", "question-2", "question-3"].map((id, index) => ({
+      id,
+      user_id: "demo-user",
+      chapter_id: "chapter-1",
+      question: `第${index + 1}题`,
+      answer: "答案",
+      sort_order: index + 1,
+      created_at: createdAt,
+      updated_at: createdAt,
+    }));
+    const store = createDemoBankStore({
+      chapters,
+      questions: chapterQuestions,
+      favorites: [],
+      progress: [],
+      publicQuestions: [],
+    });
+
+    store.reorderChapters(chapters[0].id, chapters[2].id);
+    store.reorderQuestions("chapter-1", chapterQuestions[0].id, chapterQuestions[2].id);
+
+    expect([...store.getState().chapters].sort((a, b) => a.sort_order - b.sort_order).map((chapter) => chapter.id))
+      .toEqual([chapters[1].id, chapters[2].id, chapters[0].id, ...chapters.slice(3).map((chapter) => chapter.id)]);
+    expect(store.getState().questions
+      .filter((question) => question.chapter_id === "chapter-1")
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .slice(0, 3)
+      .map((question) => question.id))
+      .toEqual([chapterQuestions[1].id, chapterQuestions[2].id, chapterQuestions[0].id]);
+  });
 });

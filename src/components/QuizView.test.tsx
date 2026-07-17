@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QuizView } from "./QuizView";
 import type { Chapter, Question } from "../types";
 
@@ -28,6 +28,10 @@ function question(id: string, chapterId: string, title: string, sortOrder: numbe
 }
 
 describe("QuizView", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     localStorage.clear();
   });
@@ -89,5 +93,27 @@ describe("QuizView", () => {
     );
 
     await waitFor(() => expect(onCurrentQuestionChange).toHaveBeenCalledWith("question-1"));
+  });
+
+  it("shows questions in their saved sort order", () => {
+    render(
+      <QuizView
+        chapters={[chapter("chapter-1", "C语言篇")]}
+        questions={[
+          question("question-2", "chapter-1", "第二题", 2),
+          question("question-1", "chapter-1", "第一题", 1),
+        ]}
+        favoriteIds={new Set()}
+        viewedCount={0}
+        resumeQuestionId=""
+        loading={false}
+        onToggleFavorite={vi.fn().mockResolvedValue(undefined)}
+        onRecordView={vi.fn().mockResolvedValue(undefined)}
+        onCurrentQuestionChange={vi.fn()}
+      />,
+    );
+
+    const directory = screen.getByLabelText("题目目录") as HTMLSelectElement;
+    expect(Array.from(directory.options, (option) => option.text)).toEqual(["Q1. 第一题", "Q2. 第二题"]);
   });
 });

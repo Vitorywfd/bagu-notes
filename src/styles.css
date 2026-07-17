@@ -159,8 +159,27 @@ textarea { resize: vertical; line-height: 1.6; }
   line-height: 1.35;
 }
 .list-stack { display: grid; gap: 8px; margin-top: 12px; }
+.sortable-row { touch-action: pan-y; }
+.sortable-row.is-dragging { opacity: .48; z-index: 2; }
+.sortable-row.is-dragging > * { box-shadow: 0 8px 20px rgba(15, 23, 42, .14); }
+.drag-handle {
+  flex: 0 0 42px;
+  width: 42px;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  touch-action: none;
+}
+.drag-handle:hover { color: var(--primary-dark); border-color: #99f6e4; }
+.list-item input { flex: 1; min-width: 0; }
 .list-item input[readonly] { background: #f8fafc; }
-.question-row button:first-child {
+.question-edit-btn {
   flex: 1;
   min-width: 0;
   border: 1px solid var(--border);

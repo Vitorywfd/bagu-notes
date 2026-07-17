@@ -27,7 +27,9 @@ export function QuizView(props: Props) {
   }, [props.chapters, ui.chapterId]);
 
   const currentList = useMemo(() => {
-    const list = props.questions.filter((question) => question.chapter_id === currentChapter?.id);
+    const list = props.questions
+      .filter((question) => question.chapter_id === currentChapter?.id)
+      .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
     return ui.favoriteOnly ? list.filter((question) => props.favoriteIds.has(question.id)) : list;
   }, [currentChapter?.id, props.favoriteIds, props.questions, ui.favoriteOnly]);
 

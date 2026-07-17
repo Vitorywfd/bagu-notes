@@ -24,6 +24,11 @@ export function useDemoQuestionBank() {
       sync();
     },
     deleteQuestion: async (questionId: string) => { store.current.deleteQuestion(questionId); sync(); },
+    reorderChapters: async (activeId: string, overId: string) => { store.current.reorderChapters(activeId, overId); sync(); },
+    reorderQuestions: async (chapterId: string, activeId: string, overId: string) => {
+      store.current.reorderQuestions(chapterId, activeId, overId);
+      sync();
+    },
     toggleFavorite: async (questionId: string) => { store.current.toggleFavorite(questionId); sync(); },
     recordView: async (questionId: string) => { store.current.recordView(questionId); sync(); },
     importBank: async (rawJson: string) => { store.current.importBank(rawJson); sync(); },
